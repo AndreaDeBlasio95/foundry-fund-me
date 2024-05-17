@@ -4,33 +4,32 @@ pragma solidity ^0.8.24;
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {PriceConverter} from "./PriceConverter.sol";
 
-error NotOwner();
+error FundMe__NotOwner();
 
 contract FundMe {
     using PriceConverter for uint256;
-
     // gas optimization with constant keyword
-    uint256 public constant MINIMUM_USD = 5e18;
 
+    uint256 public constant MINIMUM_USD = 5e18;
     address[] public funders;
     mapping(address funder => uint256 amountFunded) public addressToAmountFunded;
-
     // gas optimization with immutable keyword - i_nameVariable to indicate that it's immutable
     address public immutable i_owner;
+    AggregatorV3Interface private s_priceFeed;
 
-    constructor() {
+    constructor(address priceFeed) {
         i_owner = msg.sender;
+        s_priceFeed = AggregatorV3Interface(priceFeed);
     }
 
     function fund() public payable {
-        require(msg.value.getConvertion() >= MINIMUM_USD, "Didn't send enough ETH!");
+        require(msg.value.getConvertion(s_priceFeed) >= MINIMUM_USD, "Didn't send enough ETH!");
         funders.push(msg.sender);
         addressToAmountFunded[msg.sender] = addressToAmountFunded[msg.sender] + msg.value;
     }
 
     function getVersion() public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
-        return priceFeed.version();
+        return s_priceFeed.version();
     }
 
     function withdraw() public onlyOwner {
@@ -57,7 +56,7 @@ contract FundMe {
     modifier onlyOwner() {
         //require(msg.sender == i_owner, "Not the Owner");
         if (msg.sender != i_owner) {
-            revert NotOwner();
+            revert FundMe__NotOwner();
         }
         _;
     }
