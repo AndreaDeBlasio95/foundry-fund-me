@@ -22,4 +22,10 @@ contract FundMeTest is Test {
         console.log("Msg Sender: ", msg.sender);
         assertEq(fundMe.i_owner(), address(this));
     }
+
+    function testPriceFeedVersionIsAccurate() public {
+        // this will fail because foundry will run a local Anvil chain so that contract that we specify doesn't exist.
+        uint256 version = fundMe.getVersion();
+        assertEq(version, 4);
+    }
 }
