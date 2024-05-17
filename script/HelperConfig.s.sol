@@ -14,14 +14,16 @@ contract HelperConfig is Script {
     // Otherwise, we will deploy the real contract from a live chain
 
     NetworkConfig public activeNetworkConfig;
+    uint8 public constant DECIMALS = 8;
+    int256 public constant INITIAL_PRICE = 2000e8;
 
     constructor() {
         if (block.chainid == 11155111) {
             activeNetworkConfig = getSepoliaConfig();
         } else if (block.chainid == 1) {
-            activeNetworkConfig = getMainnetConfig();
+            activeNetworkConfig = getMainnetEthConfig();
         } else {
-            activeNetworkConfig = getAnvilConfig();
+            activeNetworkConfig = getOrCreateAnvilEthConfig();
         }
     }
 
@@ -34,17 +36,23 @@ contract HelperConfig is Script {
         return sepoliaConfig;
     }
 
-    function getMainnetConfig() public pure returns (NetworkConfig memory) {
+    function getMainnetEthConfig() public pure returns (NetworkConfig memory) {
         NetworkConfig memory ethConfig = NetworkConfig({priceFeed: 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419});
         return ethConfig;
     }
 
-    function getAnvilConfig() public returns (NetworkConfig memory) {
+    // On Anvil we need to deploy a Mock, because the contract doesn't exist, so we need a fake contract: MockV3Aggregator, which is a contract that simulates the behavior of the real contract
+    function getOrCreateAnvilEthConfig() public returns (NetworkConfig memory) {
         // 1. Deploy Mocks when we are in local Anvil chain
         // 2. Return the Mock address
         // A Mock is a contract that simulates the behavior of another contract, is a fake contract
+
+        // With this line we avoid to create multiple contracts in anvil if the contract already exists
+        if (activeNetworkConfig.priceFeed != address(0)) {
+            return activeNetworkConfig;
+        }
         vm.startBroadcast();
-        MockV3Aggregator mockPriceFeed = new MockV3Aggregator(8, 2000e8);
+        MockV3Aggregator mockPriceFeed = new MockV3Aggregator(DECIMALS, INITIAL_PRICE);
         vm.stopBroadcast();
 
         NetworkConfig memory anvilConfig = NetworkConfig({priceFeed: address(mockPriceFeed)});
